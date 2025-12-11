@@ -4,11 +4,16 @@
 #include <stdlib.h>
 #include <string.h>
 #define MAX_TOKEN_SIZE 2048
-#define MAX_STACK_SIZE 1024
+#define MAX_STACK_SIZE 16 * 16 * 16 * 16
+typedef enum TokenType { STATEMENT = 1, EXPRESSION } TokenType;
+typedef struct Token {
+  TokenType type;
+  char *content;
+} Token;
 typedef struct TreeNode {
   struct TreeNode *children;
   struct TreeNode *branch;
-  char *content;
+  Token token;
 } TreeNode;
 static void logError(char *content) { printf("[ERROR]:\n%s\n", content); }
 TreeNode *parse(FILE *file) {
@@ -25,22 +30,24 @@ TreeNode *parse(FILE *file) {
     printf("char = %s\n", &character);
     if (character == ' ' && firstVisits < openCount) {
       TreeNode *newNode = malloc(sizeof(TreeNode));
-      newNode->content = malloc(currentContentSize);
-      strcpy(newNode->content, currentContent);
+      newNode->token.content = malloc(currentContentSize);
+      strcpy(newNode->token.content, currentContent);
       newNode->branch = NULL;
       newNode->children = NULL;
       if (firstVisits < openCount) {
         if (firstVisits >= MAX_STACK_SIZE) {
-          logError("stack size limit exceeded.");
+          logError("parse error: theoretical stack size limit exceeded.");
           return NULL;
         }
         branchesStack[firstVisits] = newNode;
         currentNode->branch = newNode;
+        currentNode->branch->token.type = STATEMENT;
         currentNode = currentNode->branch;
         firstVisits++;
         continue;
       }
       currentNode->children = newNode;
+      currentNode->branch->token.type = EXPRESSION;
       currentNode = currentNode->children;
       continue;
     }
@@ -59,27 +66,21 @@ TreeNode *parse(FILE *file) {
       currentContent[currentContentSize + 1] = '\0';
       continue;
     }
-    logError("token size limit exceeded.");
+    logError("parser error: token size limit exceeded.");
     return NULL;
   }
   return currentNode;
 }
-int evaluate(TreeNode *root) {
+TreeNode *evaluate(TreeNode *root) {
   if (root == NULL) {
-    logError("could not evaluate parse tree.");
-    return 1;
+    return root;
   }
-  printf("evaluating...");
-  while (root != NULL) {
-    TreeNode *child = root->children;
-    if (strcmp(root->content, "print")) {
-      while (child != NULL) {
-        printf("%s\n", child->content);
-        child = child->children;
-      }
-    }
-    root = root->branch;
+  TreeNode *evaluated = evaluate(root->children);
+  if (root->token.type == STATEMENT) {
+    if (strcmp(root->token.content, "car")) {
+      return root;
+    } else if (strcmp(root->token.content, ))
   }
-  return 0;
+  return evaluate(root->branch);
 }
 #endif
