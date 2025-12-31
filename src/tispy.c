@@ -48,7 +48,12 @@ typedef struct {
     char *string;
   } data;
 } Input;
-static Data* popStack() {
+static void addToStack(TispyState *ctx, Token t) {}
+static Data *popStack(TispyState ctx) {
+  Data *result = ctx.stack;
+  if (result)
+    ctx.stack = result->next;
+  return result;
 }
 static char igetc(Input *i) {
   return i->kind == FILE_INPUT ? fgetc(i->data.file) : i->data.string[0]++;
@@ -133,19 +138,32 @@ TreeNode *parse(Input *i) {
   }
   return currentNode;
 }
-TreeNode *evaluate(TispyState ctx, TreeNode *root, char *funcName) {
+TreeNode *evaluate(TispyState *ctx, TreeNode *root, TreeNode *statement) {
   if (root == NULL) {
+    // do statement
+    if (strcmp(statement->token.content, "print")) {
+    }
     return root;
   }
   char *content = root->token.content;
-  TreeNode *evaluated = evaluate(ctx, root->children, content);
-  if (root->token.type == STATEMENT_FUNCTION) {
-    if (strcmp(content, "print")) {
+  Token t;
+  if (root->token.type != STATEMENT_FUNCTION)
+    t = root->token;
+  else
+    t = evaluate(ctx, root, root)->token;
+  // create next stack entry
+  Data *result = &(Data){.next = ctx->stack, .type = t.type, .value = {0}};
+  if (strlen((char *)ctx->stack->value) + strlen(t.content) < DATA_STRIPE)
+    strcat((char *)result->value, t.content);
+  else
+    for (int i = 0; i < strlen(t.content); i++) {
+      strcat((char *)result->value, &t.content[i]);
     }
-  } else {
-    if (strcmp(funcName, "print")) {
-    }
-  }
-  return evaluate(ctx, root->branch, funcName);
+  // add to stack
+  ctx->stack = result;
+  // continue evaluating arguments
+  TreeNode *evaluated = evaluate(ctx, root->children, root);
+  // evaluate next outside instruction
+  return evaluate(ctx, root->branch, root->branch);
 }
 #endif
